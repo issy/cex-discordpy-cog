@@ -14,6 +14,7 @@ class CexSearch(commands.Cog):
         self.cexRed = 0xff0000
         self.cexLogo = 'https://uk.webuy.com/_nuxt/74714aa39f40304c8fac8e7520cc0a35.png'
         self.cexEmoji = client.get_emoji(702111065953271848)
+        self.headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.163 Safari/537.36'}
         # Search item aliases
         self.D = {
             'bI'    :   'boxId',
@@ -44,15 +45,21 @@ class CexSearch(commands.Cog):
     # Retrieve search data
     async def cexSearch(self, searchTerm):
         cleanSearchTerm = urllib.parse.quote(searchTerm) # clean up the search term for the url
+        print(f'https://wss2.cex.uk.webuy.io/v3/boxes?q={cleanSearchTerm}&firstRecord=1&count=50&sortOrder=desc')
         for i in range(0,3):
+            print(f"attempt {i + 1}")
             async with aiohttp.ClientSession() as session:
                 try:
-                    data = await session.get(f'https://wss2.cex.uk.webuy.io/v3/boxes?q={cleanSearchTerm}&firstRecord=1&count=50&sortOrder=desc')
-                except ClientConnectorError as dnsIssue:
+                    data = await session.get(f'https://wss2.cex.uk.webuy.io/v3/boxes?q={cleanSearchTerm}&firstRecord=1&count=50&sortOrder=desc',headers=self.headers)
+                    break
+                except Exception as err:
+                    print(f"aw heck, I'm doing an error!\n{err}")
                     time.sleep(3) # if connection issue occurs, sleep for 3 seconds
                     continue
+                await session.close()
             products = await data.json()
             products = products['response']['data']
+            print(products)
             return products
 
     # Make embed from search data
@@ -79,6 +86,7 @@ class CexSearch(commands.Cog):
     @commands.command()
     async def search(self, ctx, *arg):
         """Searches the CeX website"""
+        print(f"searching {arg}")
         index = {}
         indexReg = re.compile("r=[0-9]+")
         if indexReg.match(arg[-1]):
@@ -103,12 +111,12 @@ class CexSearch(commands.Cog):
         try: # Check that the current index, if modified, is within range
             cexSearch[index['current']]
         except IndexError:
-            index['current'] = len(cxSearch) - 1
+            index['current'] = len(cexSearch) - 1
         index = {'min':0,
                 'current':index['current'],
                 'max':len(cexSearch)-1}
 
-        cexEmbed = await self.makeCexEmbed(cexSearch[index], index)
+        cexEmbed = await self.makeCexEmbed(cexSearch[index['current']], index)
         messageObject = await ctx.send(embed=cexEmbed) # send a result
         allowedEmojis = await self.addButtons(messageObject, index) # add buttons and get allowedEmojis
         def reaction_info_check(reaction, user):
@@ -127,10 +135,11 @@ class CexSearch(commands.Cog):
                 if reaction.emoji == '◀':
                     index['current'] = index['current'] - 1
                     await self.editResult(ctx, cexSearch, index, messageObject)
+        return
 
-    async def editResult(self, ctx, cexSearch, index, messageObject)
+    async def editResult(self, ctx, cexSearch, index, messageObject):
         await messageObject.clear_reactions()
-        cexEmbed = await.self.makeCexEmbed(cexsearch[index], index)
+        cexEmbed = await self.makeCexEmbed(cexsearch[index['current']], index)
         await messageObject.edit(embed=cexEmbed)
         allowedEmojis = await self.addButtons(messageObject, index) # add buttons and get allowedEmojis
         def reaction_info_check(reaction, user):
