@@ -46,7 +46,6 @@ class CexSearch(commands.Cog):
     @commands.command()
     async def search(self, ctx, *arg):
         """Searches the CeX website"""
-        print(f"searching {arg}")
         index = {}
         indexReg = re.compile("r=[0-9]+")
         if indexReg.match(arg[-1]):
@@ -64,8 +63,8 @@ class CexSearch(commands.Cog):
             cexSearch = cexSearch['boxes']
         if len(cexSearch) == 1: # Only one result
             index = {'min':0,'current':0,'max':0}
-            cexEmbed = await self.makeCexEmbed(cexSearch,index)
-            await ctx.send(embed=embed)
+            cexEmbed = await self.makeCexEmbed(cexSearch[index['current']],index)
+            await ctx.send(embed=cexEmbed)
             return
         try: # Check that the current index, if modified, is within range
             cexSearch[index['current']]
@@ -98,21 +97,12 @@ class CexSearch(commands.Cog):
     # Retrieve search data
     async def cexSearch(self, searchTerm):
         cleanSearchTerm = urllib.parse.quote(searchTerm) # clean up the search term for the url
-        for i in range(0,3):
-            print(f"attempt {i + 1}")
-            async with aiohttp.ClientSession() as session:
-                try:
-                    data = await session.get(f'https://wss2.cex.uk.webuy.io/v3/boxes?q={cleanSearchTerm}&firstRecord=1&count=50&sortOrder=desc',headers=self.headers)
-                    break
-                except Exception as err:
-                    print(f"aw heck, I'm doing an error!\n{err}")
-                    time.sleep(3) # if connection issue occurs, sleep for 3 seconds
-                    continue
-                products = await data.json()
-                await session.close()
-            products = products['response']['data']
-            print(products)
-            return products
+        async with aiohttp.ClientSession() as session:
+            data = await session.get(f'https://wss2.cex.uk.webuy.io/v3/boxes?q={cleanSearchTerm}&firstRecord=1&count=50&sortOrder=desc',headers=self.headers)
+            products = await data.json()
+            await session.close()
+        products = products['response']['data']
+        return products
 
     # Make embed from search data
     async def makeCexEmbed(self, searchObject, index):
@@ -128,15 +118,15 @@ class CexSearch(commands.Cog):
         else:
             embed.add_field(name="Stock", value=searchObject[self.D['eQOH']], inline=True)
         if searchObject[self.D['bR']] == None:
-            embed.add_field(text="Rating",value='None',inline=True)
+            embed.add_field(name="Rating",value='None',inline=True)
         else:
-            embed.add_field(text="Rating",value=searchObject[self.D['bR']],inline=True)
-        embed.set_footer(text=f"{index['current']+1} of {index['max']+1}", icon_url=self.cexLogo)
+            embed.add_field(name="Rating",value=searchObject[self.D['bR']],inline=True)
+        embed.set_footer(text=f"{index['current']+1} of {index['max']+1}")
         return embed
 
     async def editResult(self, ctx, cexSearch, index, messageObject):
         await messageObject.clear_reactions()
-        cexEmbed = await self.makeCexEmbed(cexsearch[index['current']], index)
+        cexEmbed = await self.makeCexEmbed(cexSearch[index['current']], index)
         await messageObject.edit(embed=cexEmbed)
         allowedEmojis = await self.addButtons(messageObject, index) # add buttons and get allowedEmojis
         def reaction_info_check(reaction, user):
