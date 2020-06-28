@@ -78,6 +78,103 @@ class CexSearch(commands.Cog):
     # Search command
     @commands.command()
     async def search(self, ctx, *arg):
+        """Searches the CeX website"""
+        index = {}
+        indexReg = re.compile("r=[0-9]+")
+        if indexReg.match(arg[-1]):
+            match = indexReg.match(arg[-1])
+            index['current'] = int(match.group(1))
+            arg = arg[:-1]
+        else:
+            index['current'] = 0
+        arg = " ".join(arg)
+
+        cexSearch = await self.cexSearch(arg)
+
+        if cexSearch is None: # No results for that search term
+            await self.noResults(ctx, arg)
+            return
+        else:
+            cexSearch = cexSearch['boxes']
+
+        if len(cexSearch) == 1: # Only one result
+            index = {'min':0,'current':0,'max':0}
+            cexEmbed = await self.makeCexEmbed(cexSearch,index)
+            await ctx.send(embed=embed)
+            return
+        
+        try: # Check that the current index, if modified, is within range
+            cexSearch[index['current']]
+        except IndexError:
+            index['current'] = len(cxSearch) - 1
+
+        index = {'min':0,
+                'current':index['current'],
+                'max':len(cexSearch)-1}
+
+        cexEmbed = await self.makeCexEmbed(cexSearch[index], index)
+        messageObject = await ctx.send(embed=cexEmbed) # send a result
+        allowedEmojis = await self.addButtons(messageObject, index) # add buttons and get allowedEmojis
+        def reaction_info_check(reaction, user):
+            return user == ctx.author and reaction.message.id == messageObject.id
+        try:
+            reaction, user = await self.client.wait_for('reaction_add', timeout=120.0, check=reaction_info_check)
+        except asyncio.TimeoutError:
+            await messageObject.clear_reactions()
+            return
+        else:
+            # User has reacted with an emoji, find out which one
+            if reaction.emoji in allowedEmojis:
+                if reaction.emoji == '▶':
+                    index['current'] = index['current'] + 1
+                    await self.editResult(ctx, cexSearch, index, messageObject)
+                if reaction.emoji == '◀':
+                    index['current'] = index['current'] - 1
+                    await self.editResult(ctx, cexSearch, index, messageObject)
+
+    async def editResult(self, ctx, cexSearch, index, messageObject)
+        await messageObject.clear_reactions()
+        cexEmbed = await.self.makeCexEmbed(cexsearch[index], index)
+        await messageObject.edit(embed=cexEmbed)
+        allowedEmojis = await self.addButtons(messageObject, index) # add buttons and get allowedEmojis
+        def reaction_info_check(reaction, user):
+            return user == ctx.author and reaction.message.id == messageObject.id
+        try:
+            reaction, user = await self.client.wait_for('reaction_add', timeout=120.0, check=reaction_info_check)
+        except asyncio.TimeoutError:
+            await messageObject.clear_reactions()
+            return
+        else:
+            # User has reacted with an emoji, find out which one
+            if reaction.emoji in allowedEmojis:
+                if reaction.emoji == '▶':
+                    index['current'] = index['current'] + 1
+                    await self.editResult(ctx, cexSearch, index, messageObject)
+                if reaction.emoji == '◀':
+                    index['current'] = index['current'] - 1
+                    await self.editResult(ctx, cexSearch, index, messageObject)
+
+
+
+    async def noResults(self, ctx, arg):
+        embed = discord.Embed(colour=self.cexRed, description="No products found for `{}`".format(arg.replace('`','``')), title=f"No results 🙁")
+        await ctx.send(embed=embed)
+        return
+
+    async def addButtons(self, messageObject, index):
+        if index['current'] == index['min']: # first result, no back arrow required
+            allowedEmojis = ['▶']
+        if index['current'] == index['max']: # last result, no forward arrow required
+            allowedEmojis = ['◀']
+        if index['min'] < index['current'] < index['max']: # a middle result, both arrows required
+            allowedEmojis = ['◀','▶']
+        for emoji in allowedEmojis:
+            await messageObject.add_reaction(emoji)
+        return allowedEmojis
+
+    # Old search command
+    @commands.command()
+    async def searchold(self, ctx, *arg):
         """Searches the Cex website"""
         print(arg)
         index = {}
@@ -180,6 +277,8 @@ class CexSearch(commands.Cog):
                     index['current'] = index['current'] - 1
                     await messageObject.clear_reactions() # clear reactions on bot message
                     await editResult(cexSearch, index, messageObject)
+
+
 
 def setup(client):
     client.add_cog(CexSearch(client))
