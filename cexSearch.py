@@ -42,46 +42,6 @@ class CexSearch(commands.Cog):
     async def on_ready(self):
         print('Cex search cog online')
 
-    # Retrieve search data
-    async def cexSearch(self, searchTerm):
-        cleanSearchTerm = urllib.parse.quote(searchTerm) # clean up the search term for the url
-        print(f'https://wss2.cex.uk.webuy.io/v3/boxes?q={cleanSearchTerm}&firstRecord=1&count=50&sortOrder=desc')
-        for i in range(0,3):
-            print(f"attempt {i + 1}")
-            async with aiohttp.ClientSession() as session:
-                try:
-                    data = await session.get(f'https://wss2.cex.uk.webuy.io/v3/boxes?q={cleanSearchTerm}&firstRecord=1&count=50&sortOrder=desc',headers=self.headers)
-                    break
-                except Exception as err:
-                    print(f"aw heck, I'm doing an error!\n{err}")
-                    time.sleep(3) # if connection issue occurs, sleep for 3 seconds
-                    continue
-                await session.close()
-            products = await data.json()
-            products = products['response']['data']
-            print(products)
-            return products
-
-    # Make embed from search data
-    async def makeCexEmbed(self, searchObject, index):
-        embed = discord.Embed(colour=discord.Colour(self.cexRed), url="https://uk.webuy.com/product-detail/?id="+searchObject[self.D['bI']])
-        embed.set_author(name=searchObject[self.D['bN']], url="https://uk.webuy.com/product-detail/?id="+searchObject[self.D['bI']], icon_url=self.cexLogo)
-        embed.set_thumbnail(url=searchObject['imageUrls']['large'].replace(" ", "%20")) # cleans up the URL
-        embed.add_field(name="Category", value=searchObject[self.D['cFN']], inline=False)
-        embed.add_field(name="WeSell for", value=f"£{searchObject[self.D['sP']]}", inline=True)
-        embed.add_field(name="WeBuy for Voucher", value=f"£{searchObject[self.D['eP']]}", inline=True)
-        embed.add_field(name="WeBuy for Cash", value=f"£{searchObject[self.D['cP']]}", inline=True)
-        if searchObject[self.D['oOES']] == 1: # if it's out of stock
-            embed.add_field(name="In Stock", value=False, inline=True)
-        else:
-            embed.add_field(name="Stock", value=searchObject[self.D['eQOH']], inline=True)
-        if searchObject[self.D['bR']] == None:
-            embed.add_field(text="Rating",value='None',inline=True)
-        else:
-            embed.add_field(text="Rating",value=searchObject[self.D['bR']],inline=True)
-        embed.set_footer(text=f"{index['current']+1} of {index['max']+1}", icon_url=self.cexLogo)
-        return embed
-
     # Search command
     @commands.command()
     async def search(self, ctx, *arg):
@@ -107,7 +67,6 @@ class CexSearch(commands.Cog):
             cexEmbed = await self.makeCexEmbed(cexSearch,index)
             await ctx.send(embed=embed)
             return
-
         try: # Check that the current index, if modified, is within range
             cexSearch[index['current']]
         except IndexError:
@@ -115,7 +74,6 @@ class CexSearch(commands.Cog):
         index = {'min':0,
                 'current':index['current'],
                 'max':len(cexSearch)-1}
-
         cexEmbed = await self.makeCexEmbed(cexSearch[index['current']], index)
         messageObject = await ctx.send(embed=cexEmbed) # send a result
         allowedEmojis = await self.addButtons(messageObject, index) # add buttons and get allowedEmojis
@@ -136,6 +94,45 @@ class CexSearch(commands.Cog):
                     index['current'] = index['current'] - 1
                     await self.editResult(ctx, cexSearch, index, messageObject)
         return
+
+    # Retrieve search data
+    async def cexSearch(self, searchTerm):
+        cleanSearchTerm = urllib.parse.quote(searchTerm) # clean up the search term for the url
+        for i in range(0,3):
+            print(f"attempt {i + 1}")
+            async with aiohttp.ClientSession() as session:
+                try:
+                    data = await session.get(f'https://wss2.cex.uk.webuy.io/v3/boxes?q={cleanSearchTerm}&firstRecord=1&count=50&sortOrder=desc',headers=self.headers)
+                    break
+                except Exception as err:
+                    print(f"aw heck, I'm doing an error!\n{err}")
+                    time.sleep(3) # if connection issue occurs, sleep for 3 seconds
+                    continue
+                products = await data.json()
+                await session.close()
+            products = products['response']['data']
+            print(products)
+            return products
+
+    # Make embed from search data
+    async def makeCexEmbed(self, searchObject, index):
+        embed = discord.Embed(colour=discord.Colour(self.cexRed), url="https://uk.webuy.com/product-detail/?id="+searchObject[self.D['bI']])
+        embed.set_author(name=searchObject[self.D['bN']], url="https://uk.webuy.com/product-detail/?id="+searchObject[self.D['bI']], icon_url=self.cexLogo)
+        embed.set_thumbnail(url=searchObject['imageUrls']['large'].replace(" ", "%20")) # cleans up the URL
+        embed.add_field(name="Category", value=searchObject[self.D['cFN']], inline=False)
+        embed.add_field(name="WeSell for", value=f"£{searchObject[self.D['sP']]}", inline=True)
+        embed.add_field(name="WeBuy for Voucher", value=f"£{searchObject[self.D['eP']]}", inline=True)
+        embed.add_field(name="WeBuy for Cash", value=f"£{searchObject[self.D['cP']]}", inline=True)
+        if searchObject[self.D['oOES']] == 1: # if it's out of stock
+            embed.add_field(name="In Stock", value=False, inline=True)
+        else:
+            embed.add_field(name="Stock", value=searchObject[self.D['eQOH']], inline=True)
+        if searchObject[self.D['bR']] == None:
+            embed.add_field(text="Rating",value='None',inline=True)
+        else:
+            embed.add_field(text="Rating",value=searchObject[self.D['bR']],inline=True)
+        embed.set_footer(text=f"{index['current']+1} of {index['max']+1}", icon_url=self.cexLogo)
+        return embed
 
     async def editResult(self, ctx, cexSearch, index, messageObject):
         await messageObject.clear_reactions()
