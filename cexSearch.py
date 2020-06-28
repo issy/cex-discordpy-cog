@@ -88,26 +88,22 @@ class CexSearch(commands.Cog):
         else:
             index['current'] = 0
         arg = " ".join(arg)
-
         cexSearch = await self.cexSearch(arg)
-
         if cexSearch is None: # No results for that search term
             await self.noResults(ctx, arg)
             return
         else:
             cexSearch = cexSearch['boxes']
-
         if len(cexSearch) == 1: # Only one result
             index = {'min':0,'current':0,'max':0}
             cexEmbed = await self.makeCexEmbed(cexSearch,index)
             await ctx.send(embed=embed)
             return
-        
+
         try: # Check that the current index, if modified, is within range
             cexSearch[index['current']]
         except IndexError:
             index['current'] = len(cxSearch) - 1
-
         index = {'min':0,
                 'current':index['current'],
                 'max':len(cexSearch)-1}
@@ -154,8 +150,6 @@ class CexSearch(commands.Cog):
                     index['current'] = index['current'] - 1
                     await self.editResult(ctx, cexSearch, index, messageObject)
 
-
-
     async def noResults(self, ctx, arg):
         embed = discord.Embed(colour=self.cexRed, description="No products found for `{}`".format(arg.replace('`','``')), title=f"No results 🙁")
         await ctx.send(embed=embed)
@@ -171,114 +165,6 @@ class CexSearch(commands.Cog):
         for emoji in allowedEmojis:
             await messageObject.add_reaction(emoji)
         return allowedEmojis
-
-    # Old search command
-    @commands.command()
-    async def searchold(self, ctx, *arg):
-        """Searches the Cex website"""
-        print(arg)
-        index = {}
-        indexReg = re.compile("r=[0-9]+")
-        if indexReg.match(arg[-1]):
-            match = indexReg.match(arg[-1])
-            index['current'] = int(match.group(1))
-            arg = arg[:-1]
-        else:
-            index['current'] = 0
-        # Fetch search data
-        arg = " ".join(arg)
-        cexSearch = await self.cexSearch(arg)
-        if cexSearch is None: # If no results found for that search term
-            embed = discord.Embed(colour=self.cexRed, description="No products found for `{}`".format(arg.replace('`','``')), title=f"No results 🙁")
-            await ctx.send(embed=embed)
-            return
-        else:
-            cexSearch = cexSearch['boxes']
-
-        index['min'] = 0
-        index['max'] = len(cexSearch)-1
-        if index['current'] < 0:
-            index['current'] = 0
-        elif index['current'] > index['max']:
-            index['current'] = index['max']
-        # try:
-        #     cexSearch[index['current']]
-        # except IndexError:
-        #     index['current'] = len(cexSearch)-1
-        cexEmbed = await self.makeCexEmbed(cexSearch[index])
-        messageObject = await ctx.send(embed=cexEmbed) # Send a result
-        emojis = ['◀','▶']
-        if (len(cexSearch) == 1) and (index['current'] == index['max'] == index['min']): # If this is the only result, no pagination is required
-            allowedEmojis = []
-            await ctx.send(embed=cexEmbed)
-            return
-        if (index['current'] == 0) and (len(cexSearch) > 1): # if this is the first result, no back arrow is required
-            await messageObject.add_reaction('▶')
-            allowedEmojis = ['▶']
-        if (index['current'] != index['min']) and (index['current'] != index['max']): # if it's not the first/last result
-            allowedEmojis = emojis
-            for emoji in emojis:
-                await messageObject.add_reaction(emoji) # add forwards AND backwards emojis
-        if (index['current'] != index['min']) and (index['current'] == index['max']): # if it's the last result, only add back arrow
-            await messageObject.add_reaction('◀')
-            allowedEmojis = ['◀']
-        async def editResult(cexSearch, index, messageObject):
-            cexEmbed = await self.makeCexEmbed(cexSearch[index])
-            await messageObject.edit(embed=cexEmbed)
-            emojis = ['◀','▶']
-            if (len(cexSearch) == 1) and (index['current'] == index['max'] == index['min']): # If this is the only result, no pagination is required
-                allowedEmojis = []
-                await ctx.send(embed=cexEmbed)
-                return
-            if (index['current'] == 0) and (len(cexSearch) > 1): # if this is the first result, no back arrow is required
-                await messageObject.add_reaction('▶')
-                allowedEmojis = ['▶']
-            if (index['current'] != index['min']) and (index['current'] != index['max']): # if it's not the first/last result
-                for emoji in emojis:
-                    await messageObject.add_reaction(emoji) # add forwards AND backwards emojis
-                    allowedEmojis = emojis
-            if (index['current'] != index['min']) and (index['current'] == index['max']): # if it's the last result, only add back arrow
-                await messageObject.add_reaction('◀')
-                allowedEmojis = ['◀']
-            def reaction_info_check(reaction, user):
-                return user == ctx.author and reaction.message.id == messageObject.id
-            try:
-                reaction, user = await self.client.wait_for('reaction_add', timeout=60.0, check=reaction_info_check)
-            except asyncio.TimeoutError:
-                await messageObject.clear_reactions() # clear reactions on bot message
-                return
-            else:
-                # Okay, the user has reacted with an emoji, let us find out which one!
-                if reaction.emoji in allowedEmojis:
-                    if reaction.emoji == '▶':
-                        index['current'] = index['current'] + 1
-                        await messageObject.clear_reactions() # clear reactions on bot message
-                        await editResult(cexSearch, index, messageObject)
-                    if reaction.emoji == '◀':
-                        index['current'] = index['current'] - 1
-                        await messageObject.clear_reactions() # clear reactions on bot message
-                        await editResult(cexSearch, index, messageObject)
-        def reaction_info_check(reaction, user):
-            return user == ctx.author and reaction.message.id == messageObject.id
-        try:
-            reaction, user = await self.client.wait_for('reaction_add', timeout=60.0, check=reaction_info_check)
-        except asyncio.TimeoutError:
-            await messageObject.clear_reactions() # clear reactions on bot message
-            return
-        else:
-            # Okay, the user has reacted with an emoji, let us find out which one!
-            if reaction.emoji in allowedEmojis:
-                if reaction.emoji == '▶':
-                    index['current'] = index['current'] + 1
-                    #await editResult(cexSearch, index)
-                    await messageObject.clear_reactions() # clear reactions on bot message
-                    await editResult(cexSearch, index, messageObject)
-                if reaction.emoji == '◀':
-                    index['current'] = index['current'] - 1
-                    await messageObject.clear_reactions() # clear reactions on bot message
-                    await editResult(cexSearch, index, messageObject)
-
-
 
 def setup(client):
     client.add_cog(CexSearch(client))
