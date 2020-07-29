@@ -74,7 +74,7 @@ class CexSearch(commands.Cog):
                 'current':index['current'],
                 'max':len(cexSearch)-1}
         cexEmbed = await self.makeCexEmbed(cexSearch[index['current']], index)
-        messageObject = await ctx.send(embed=cexEmbed) # send a result
+        messageObject = await ctx.send(content=f"<https://uk.webuy.com/search/index.php?stext={urllib.parse.quote(arg)}&categoryID=&is=0>", embed=cexEmbed) # send a result
         allowedEmojis = await self.addButtons(messageObject, index) # add buttons and get allowedEmojis
         def reaction_info_check(reaction, user):
             return user == ctx.author and reaction.message.id == messageObject.id
@@ -88,10 +88,10 @@ class CexSearch(commands.Cog):
             if reaction.emoji in allowedEmojis:
                 if reaction.emoji == '▶':
                     index['current'] = index['current'] + 1
-                    await self.editResult(ctx, cexSearch, index, messageObject)
+                    await self.editResult(ctx, cexSearch, index, messageObject, arg)
                 if reaction.emoji == '◀':
                     index['current'] = index['current'] - 1
-                    await self.editResult(ctx, cexSearch, index, messageObject)
+                    await self.editResult(ctx, cexSearch, index, messageObject, arg)
         return
 
     # Retrieve search data
@@ -102,6 +102,7 @@ class CexSearch(commands.Cog):
             products = await data.json()
             await session.close()
         products = products['response']['data']
+
         return products
 
     # Make embed from search data
@@ -128,10 +129,10 @@ class CexSearch(commands.Cog):
         embed.set_footer(text=f"{index['current']+1} of {index['max']+1}")
         return embed
 
-    async def editResult(self, ctx, cexSearch, index, messageObject):
+    async def editResult(self, ctx, cexSearch, index, messageObject, searchTerm):
         await messageObject.clear_reactions()
         cexEmbed = await self.makeCexEmbed(cexSearch[index['current']], index)
-        await messageObject.edit(embed=cexEmbed)
+        await messageObject.edit(content=f"<https://uk.webuy.com/search/index.php?stext={urllib.parse.quote(searchTerm)}&categoryID=&is=0>", embed=cexEmbed)
         allowedEmojis = await self.addButtons(messageObject, index) # add buttons and get allowedEmojis
         def reaction_info_check(reaction, user):
             return user == ctx.author and reaction.message.id == messageObject.id
@@ -145,10 +146,10 @@ class CexSearch(commands.Cog):
             if reaction.emoji in allowedEmojis:
                 if reaction.emoji == '▶':
                     index['current'] = index['current'] + 1
-                    await self.editResult(ctx, cexSearch, index, messageObject)
+                    await self.editResult(ctx, cexSearch, index, messageObject, searchTerm)
                 if reaction.emoji == '◀':
                     index['current'] = index['current'] - 1
-                    await self.editResult(ctx, cexSearch, index, messageObject)
+                    await self.editResult(ctx, cexSearch, index, messageObject, searchTerm)
 
     async def noResults(self, ctx, arg):
         embed = discord.Embed(colour=self.cexRed, description="No products found for `{}`".format(arg.replace('`','``')), title=f"No results 🙁")
