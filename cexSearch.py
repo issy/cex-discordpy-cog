@@ -106,13 +106,17 @@ class CexSearch(commands.Cog):
 
     # Make embed from search data
     async def makeCexEmbed(self, searchObject, index):
+        # Format prices as currency
+        weSell = "£{:,.2f}".format(float(searchObject[self.D['sP']]))
+        weBuyV = "£{:,.2f}".format(float(searchObject[self.D['eP']]))
+        weBuyC = "£{:,.2f}".format(float(searchObject[self.D['cP']]))
         embed = discord.Embed(colour=discord.Colour(self.cexRed), url="https://uk.webuy.com/product-detail/?id="+searchObject[self.D['bI']])
         embed.set_author(name=searchObject[self.D['bN']], url="https://uk.webuy.com/product-detail/?id="+searchObject[self.D['bI']], icon_url=self.cexLogo)
         embed.set_thumbnail(url=searchObject['imageUrls']['large'].replace(" ", "%20")) # cleans up the URL
         embed.add_field(name="Category", value=searchObject[self.D['cFN']], inline=False)
-        embed.add_field(name="WeSell for", value=f"£{searchObject[self.D['sP']]}", inline=True)
-        embed.add_field(name="WeBuy for Voucher", value=f"£{searchObject[self.D['eP']]}", inline=True)
-        embed.add_field(name="WeBuy for Cash", value=f"£{searchObject[self.D['cP']]}", inline=True)
+        embed.add_field(name="WeSell for", value=weSell, inline=True)
+        embed.add_field(name="WeBuy for Voucher", value=weBuyV, inline=True)
+        embed.add_field(name="WeBuy for Cash", value=weBuyC, inline=True)
         if searchObject[self.D['oOES']] == 1: # if it's out of stock
             embed.add_field(name="In Stock", value=False, inline=True)
         else:
